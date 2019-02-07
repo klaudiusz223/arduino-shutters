@@ -20,7 +20,7 @@ class Shutters;
 
 namespace ShuttersInternal {
   const uint16_t SAFETY_DELAY = 1 * 1000;
-  const uint8_t LEVELS = 100;
+  // const uint16_t LEVELS = 1000;
 
   enum State : uint8_t {
     STATE_IDLE, // not moving
@@ -52,8 +52,8 @@ private:
 
   ShuttersInternal::StoredState _storedState;
 
-  uint8_t _currentLevel;
-  uint8_t _targetLevel;
+  uint16_t _currentLevel;
+  uint16_t _targetLevel;
 
   bool _safetyDelay;
   uint32_t _safetyDelayTime;
@@ -84,11 +84,11 @@ public:
   Shutters& setCalibrationRatio(float calibrationRatio);
   Shutters& onLevelReached(ShuttersInternal::LevelReachedCallback callback);
   Shutters& begin();
-  Shutters& setLevel(uint8_t level);
+  Shutters& setLevel(uint16_t level);
   Shutters& stop();
   Shutters& loop();
   bool isIdle();
-  uint8_t getCurrentLevel();
+  uint16_t getCurrentLevel();
   Shutters& reset();
   bool isReset();
 };

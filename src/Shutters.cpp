@@ -153,12 +153,12 @@ Shutters& Shutters::begin() {
   return *this;
 }
 
-Shutters& Shutters::setLevel(uint8_t level) {
+Shutters& Shutters::setLevel(uint16_t level) {
   if (_reset) {
     return *this;
   }
 
-  if (level > 100) {
+  if (level > LEVELS) {
     return *this;
   }
 
@@ -261,7 +261,7 @@ Shutters& Shutters::loop() {
   _storedState.setLevel(_currentLevel);
   _stateTime = millis();
 
-  if (_currentLevel == 0 || _currentLevel == 100) { // we need to calibrate
+  if (_currentLevel == 0 || _currentLevel == LEVELS) { // we need to calibrate
     DPRINTLN(F("Shutters: starting calibration"));
     _state = STATE_CALIBRATING;
     if (_currentLevel == _targetLevel) _targetLevel = LEVEL_NONE;
@@ -301,7 +301,7 @@ bool Shutters::isIdle() {
   return _state == STATE_IDLE;
 }
 
-uint8_t Shutters::getCurrentLevel() {
+uint16_t Shutters::getCurrentLevel() {
   return _currentLevel;
 }
 

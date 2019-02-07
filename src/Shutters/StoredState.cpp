@@ -22,7 +22,7 @@ void StoredState::feed(const char* state) {
 
   const uint64_t upCourseTime = stateNumber >> 38;
   const uint64_t downCourseTime = (stateNumber << 26) >> 38;
-  const uint64_t rawLevel = (stateNumber << 52) >> 57;
+  const uint64_t rawLevel = (stateNumber << 52) >> 54;
 
   _upCourseTime = upCourseTime;
   _downCourseTime = downCourseTime;
@@ -37,16 +37,16 @@ void StoredState::feed(const char* state) {
 bool StoredState::isValid() {
   bool upCourseTimeValid = _upCourseTime > 0;
   bool downCourseTimeValid = _downCourseTime > 0;
-  bool levelValid = _level <= 100;
+  bool levelValid = _level <= LEVELS;
 
   return upCourseTimeValid && downCourseTimeValid && levelValid;
 }
 
-uint8_t StoredState::getLevel() {
+uint16_t StoredState::getLevel() {
   return _level;
 }
 
-void StoredState::setLevel(uint8_t level) {
+void StoredState::setLevel(uint16_t level) {
   _level = level;
 }
 
@@ -73,7 +73,7 @@ void StoredState::setDownCourseTime(uint32_t downCourseTime) {
 const char* StoredState::getState() {
   uint64_t upCourseTime = _upCourseTime << 38;
   uint64_t downCourseTime = _downCourseTime << 12;
-  uint64_t level = (_level + LEVEL_OFFSET) << 5;
+  uint64_t level = (_level + LEVEL_OFFSET) << 2;
 
   uint64_t stateNumber = upCourseTime | downCourseTime | level;
 
