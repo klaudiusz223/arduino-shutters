@@ -33,7 +33,7 @@ namespace ShuttersInternal {
 
   typedef void (*OperationHandler)(::Shutters* s, ::ShuttersOperation operation);
   typedef void (*WriteStateHandler)(::Shutters* s, const char* state, uint8_t length);
-  typedef void (*LevelReachedCallback)(::Shutters* s, uint8_t level);
+  typedef void (*LevelReachedCallback)(::Shutters* s, uint16_t level);
 }
 
 class Shutters {
