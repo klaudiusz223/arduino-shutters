@@ -7,6 +7,10 @@
 
 #include "Shutters/StoredState.hpp"
 
+#ifndef _SAFETY_DELAY_
+  #define _SAFETY_DELAY_ 1 * 1000
+#endif
+
 // #define DEBUG
 #ifdef DEBUG
   #define DPRINT(...)    Serial.print(__VA_ARGS__)
@@ -19,7 +23,7 @@
 class Shutters;
 
 namespace ShuttersInternal {
-  const uint16_t SAFETY_DELAY = 1 * 1000;
+  const uint16_t SAFETY_DELAY = _SAFETY_DELAY_;
   // const uint16_t LEVELS = 1000;
 
   enum State : uint8_t {
