@@ -13,6 +13,7 @@ Shutters::Shutters()
 , _currentLevel(LEVEL_NONE)
 , _targetLevel(LEVEL_NONE)
 , _safetyDelay(false)
+, _safetyDelayDirection(DIRECTION_DOWN)
 , _safetyDelayTime(0)
 , _reset(true)
 , _operationHandler(nullptr)
@@ -24,11 +25,13 @@ Shutters::Shutters()
 void Shutters::_up() {
   DPRINTLN(F("Shutters: going up"));
   _operationHandler(this, ShuttersOperation::UP);
+  _safetyDelay = false;
 }
 
 void Shutters::_down() {
   DPRINTLN(F("Shutters: going down"));
   _operationHandler(this, ShuttersOperation::DOWN);
+  _safetyDelay = false;
 }
 
 void Shutters::_halt() {
@@ -177,9 +180,9 @@ Shutters& Shutters::setLevel(uint16_t level) {
 Shutters& Shutters::stop() {
   if (_reset) return *this;
 
-  if (_state == STATE_IDLE) return *this;
-
   _targetLevel = LEVEL_NONE;
+  if (_state == STATE_IDLE) return *this;
+ 
   if (_state == STATE_TARGETING) {
     _state = STATE_NORMALIZING;
   }
@@ -196,7 +199,12 @@ Shutters& Shutters::loop() {
       _safetyDelay = false;
     }
 
-    return *this;
+    if (_targetLevel != LEVEL_NONE ) {
+      _direction = (_targetLevel > _currentLevel) ? DIRECTION_DOWN : DIRECTION_UP;
+
+      if (_direction == _safetyDelayDirection) 
+          return *this;          
+    }
   }
 
   // here, we're safe for relays
@@ -242,6 +250,7 @@ Shutters& Shutters::loop() {
   if (_state == STATE_IDLE) {
     DPRINTLN(F("Shutters: starting move"));
     _direction = (_targetLevel > _currentLevel) ? DIRECTION_DOWN : DIRECTION_UP;
+    _safetyDelayDirection =  _direction == DIRECTION_DOWN ? DIRECTION_UP : DIRECTION_DOWN  ;  
     _storedState.setLevel(LEVEL_NONE);
     _writeStateHandler(this, _storedState.getState(), STATE_LENGTH);
     (_direction == DIRECTION_UP) ? _up() : _down();

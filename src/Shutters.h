@@ -61,6 +61,7 @@ private:
 
   bool _safetyDelay;
   uint32_t _safetyDelayTime;
+  ShuttersInternal::Direction _safetyDelayDirection; 
 
   bool _init;
   bool _reset;
