@@ -65,11 +65,8 @@ Shutters& Shutters::setOperationHandler(ShuttersInternal::OperationHandler handl
   return *this;
 }
 
-uint8_t Shutters::getStateLength() {
-  return STATE_LENGTH;
-}
 
-Shutters& Shutters::restoreState(const char* state) {
+Shutters& Shutters::restoreState(uint64_t state) {
   if (!_reset) {
     return *this;
   }
@@ -125,7 +122,7 @@ Shutters& Shutters::setCourseTime(uint32_t upCourseTime, uint32_t downCourseTime
   _downCalibrationTime = downCourseTime * _calibrationRatio;
   _storedState.setDownCourseTime(downCourseTime);
 
-  _writeStateHandler(this, _storedState.getState(), STATE_LENGTH);
+  _writeStateHandler(this, _storedState.getState());
 
   return *this;
 }
@@ -221,7 +218,7 @@ Shutters& Shutters::loop() {
       _state = STATE_IDLE;
       _currentLevel = 0;
       _storedState.setLevel(_currentLevel);
-      _writeStateHandler(this, _storedState.getState(), STATE_LENGTH);
+      _writeStateHandler(this, _storedState.getState());
       _notifyLevel();
     }
 
@@ -239,7 +236,7 @@ Shutters& Shutters::loop() {
       _halt();
       _state = STATE_IDLE;
       _notifyLevel();
-      _writeStateHandler(this, _storedState.getState(), STATE_LENGTH);
+      _writeStateHandler(this, _storedState.getState());
     }
 
     return *this;
@@ -252,7 +249,7 @@ Shutters& Shutters::loop() {
     _direction = (_targetLevel > _currentLevel) ? DIRECTION_DOWN : DIRECTION_UP;
     _safetyDelayDirection =  _direction == DIRECTION_DOWN ? DIRECTION_UP : DIRECTION_DOWN  ;  
     _storedState.setLevel(LEVEL_NONE);
-    _writeStateHandler(this, _storedState.getState(), STATE_LENGTH);
+    _writeStateHandler(this, _storedState.getState());
     (_direction == DIRECTION_UP) ? _up() : _down();
     _state = STATE_TARGETING;
     _stateTime = millis();
@@ -283,7 +280,7 @@ Shutters& Shutters::loop() {
     _halt();
     _state = STATE_IDLE;
     _notifyLevel();
-    if (_targetLevel == LEVEL_NONE) _writeStateHandler(this, _storedState.getState(), STATE_LENGTH);
+    if (_targetLevel == LEVEL_NONE) _writeStateHandler(this, _storedState.getState());
 
     return *this;
   }
@@ -294,7 +291,7 @@ Shutters& Shutters::loop() {
     _state = STATE_IDLE;
     _targetLevel = LEVEL_NONE;
     _notifyLevel();
-    _writeStateHandler(this, _storedState.getState(), STATE_LENGTH);
+    _writeStateHandler(this, _storedState.getState());
 
     return *this;
   }
@@ -317,7 +314,7 @@ uint16_t Shutters::getCurrentLevel() {
 Shutters& Shutters::reset() {
   _halt();
   _storedState.reset();
-  _writeStateHandler(this, _storedState.getState(), STATE_LENGTH);
+  _writeStateHandler(this, _storedState.getState());
   _reset = true;
 
   return *this;

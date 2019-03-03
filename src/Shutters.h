@@ -36,7 +36,7 @@ namespace ShuttersInternal {
   enum Direction : bool { DIRECTION_DOWN, DIRECTION_UP };
 
   typedef void (*OperationHandler)(::Shutters* s, ::ShuttersOperation operation);
-  typedef void (*WriteStateHandler)(::Shutters* s, const char* state, uint8_t length);
+  typedef void (*WriteStateHandler)(::Shutters* s, uint64_t state);
   typedef void (*LevelReachedCallback)(::Shutters* s, uint16_t level);
 }
 
@@ -81,8 +81,7 @@ public:
   uint32_t getUpCourseTime();
   uint32_t getDownCourseTime();
   Shutters& setOperationHandler(ShuttersInternal::OperationHandler handler);
-  uint8_t getStateLength();
-  Shutters& restoreState(const char* state);
+  Shutters& restoreState(uint64_t state); 
   Shutters& setWriteStateHandler(ShuttersInternal::WriteStateHandler handler);
   Shutters& setCourseTime(uint32_t upCourseTime, uint32_t downCourseTime = 0);
   float getCalibrationRatio();

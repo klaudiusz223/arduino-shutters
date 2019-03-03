@@ -9,20 +9,10 @@ StoredState::StoredState()
 {
 }
 
-void StoredState::feed(const char* state) {
-  uint64_t stateNumber = 0;
-
-  for (int i = 0; i < STATE_LENGTH; i++) {
-    char c = state[i];
-    if (c < '0' || c > '9') break;
-
-    stateNumber *= 10;
-    stateNumber += (c - '0');
-  }
-
-  const uint64_t upCourseTime = stateNumber >> 38;
-  const uint64_t downCourseTime = (stateNumber << 26) >> 38;
-  const uint64_t rawLevel = (stateNumber << 52) >> 54;
+void StoredState::feed(uint64_t state) {
+  const uint32_t upCourseTime = (uint32_t)(state >> 38);
+  const uint32_t downCourseTime = (uint32_t)((state << 26) >> 38);
+  const uint16_t rawLevel = (uint16_t)((state << 52) >> 54);
 
   _upCourseTime = upCourseTime;
   _downCourseTime = downCourseTime;
@@ -70,22 +60,13 @@ void StoredState::setDownCourseTime(uint32_t downCourseTime) {
   _downCourseTime = downCourseTime;
 }
 
-const char* StoredState::getState() {
-  uint64_t upCourseTime = _upCourseTime << 38;
-  uint64_t downCourseTime = _downCourseTime << 12;
-  uint64_t level = (_level + LEVEL_OFFSET) << 2;
-
-  uint64_t stateNumber = upCourseTime | downCourseTime | level;
-
-  uint8_t digit;
-  for (int i = 0; i < STATE_LENGTH; i++) {
-    digit = stateNumber % 10;
-    stateNumber /= 10;
-    _state[(STATE_LENGTH - 1) - i] = '0' + digit;
-  }
-
-  _state[STATE_LENGTH] = '\0';
-
+uint64_t StoredState::getState() {
+  _state = _upCourseTime;
+  _state <<= 26;
+  _state |= _downCourseTime;
+  _state <<= 10;
+  _state |= (_level + LEVEL_OFFSET);
+  _state <<= 2;
   return _state;
 }
 
