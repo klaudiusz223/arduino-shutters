@@ -6,12 +6,17 @@ Shutters::Shutters()
 : _upCourseTime(0)
 , _downCourseTime(0)
 , _calibrationRatio(0.1)
+, _rotationTimeUp(1500)
+, _rotationTimeDown(1500)
 , _state(STATE_IDLE)
 , _stateTime(0)
 , _direction(DIRECTION_UP)
 , _storedState()
 , _currentLevel(LEVEL_NONE)
 , _targetLevel(LEVEL_NONE)
+, _currentTilt(LEVEL_NONE)
+, _targetTilt(LEVEL_NONE)
+// , _tiltCorrection(0)
 , _safetyDelay(false)
 , _safetyDelayTime(0)
 , _safetyDelayDirection(DIRECTION_DOWN)
@@ -19,6 +24,7 @@ Shutters::Shutters()
 , _operationHandler(nullptr)
 , _writeStateHandler(nullptr)
 , _levelReachedCallback(nullptr)
+, _tiltReachedCallback(nullptr)
 {
 }
 
@@ -51,6 +57,12 @@ void Shutters::_notifyLevel() {
   if (_levelReachedCallback) _levelReachedCallback(this, _currentLevel);
 }
 
+void Shutters::_notifyTilt() { 
+  DPRINT(F("Shutters: notifying tilt "));
+  DPRINTLN(_currentTilt);
+  if (_tiltReachedCallback) _tiltReachedCallback(this, _currentTilt);
+}
+
 uint32_t Shutters::getUpCourseTime() {
   return _upCourseTime;
 }
@@ -59,12 +71,19 @@ uint32_t Shutters::getDownCourseTime() {
   return _downCourseTime;
 }
 
+uint16_t Shutters::getRotationTimeUp() {
+  return _rotationTimeUp;
+}
+
+uint16_t Shutters::getRotationTimeDown() {
+  return _rotationTimeDown;
+}
+
 Shutters& Shutters::setOperationHandler(ShuttersInternal::OperationHandler handler) {
   _operationHandler = handler;
 
   return *this;
 }
-
 
 Shutters& Shutters::restoreState(uint64_t state) {
   if (!_reset) {
@@ -76,9 +95,13 @@ Shutters& Shutters::restoreState(uint64_t state) {
   if (_storedState.isValid()) {
     DPRINTLN(F("Shutters: Stored state is valid"));
     _currentLevel = _storedState.getLevel();
-	_downCourseTime = _storedState.getDownCourseTime();
-	_upCourseTime = _storedState.getUpCourseTime();
+	  _downCourseTime = _storedState.getDownCourseTime() * 10;
+	  _upCourseTime = _storedState.getUpCourseTime() * 10;
+    _currentTilt = _storedState.getTilt();
+    _rotationStepUp = _storedState.getRotationStepUp();
+    _rotationStepDown = _storedState.getRotationStepDown();
     _notifyLevel();
+    _notifyTilt();
   } else {
     DPRINTLN(F("Stored state is invalid"));
   }
@@ -93,35 +116,92 @@ Shutters& Shutters::setWriteStateHandler(ShuttersInternal::WriteStateHandler han
 }
 
 Shutters& Shutters::setCourseTime(uint32_t upCourseTime, uint32_t downCourseTime) {
+  _upCourseTime = upCourseTime/10 * 10 ;
+  _downCourseTime = downCourseTime/10 * 10;
+  return *this;
+}
+
+Shutters& Shutters::setRotationTime(uint16_t rotationTimeUp,uint16_t rotationTimeDown) {
+  _rotationTimeUp = rotationTimeUp;
+  _rotationTimeDown = rotationTimeDown;
+  return *this;
+}
+
+Shutters& Shutters::setCourseTime() {
   if (!_reset) {
+    _upCourseTime = 0;
+    _downCourseTime = 0;
+    _rotationTimeUp = 1500;
+    _rotationTimeDown = 1500;
     return *this;
   }
 
   if (!_writeStateHandler) {
+    _upCourseTime = 0;
+    _downCourseTime = 0;
+    _rotationTimeUp = 1500;
+    _rotationTimeDown = 1500;
     return *this;
   }
 
-  if (upCourseTime > 67108864UL|| upCourseTime == 0) return *this; // max value for 26 bits
+  if (_upCourseTime > (((uint32_t)1 << 15) - 1) * 10 || _upCourseTime == 0) {
+    _upCourseTime = 0;
+    _downCourseTime = 0;
+    _rotationTimeUp = 1500;
+    _rotationTimeDown = 1500;
+    return *this;
+  }  // max value for 16 bits
   // if down course time is not set, consider it's the same as up
-  if (downCourseTime == 0) downCourseTime = upCourseTime;
-  if (downCourseTime > 67108864UL) return *this; // max value for 26 bits
-
-  if (upCourseTime != _storedState.getUpCourseTime() || downCourseTime != _storedState.getDownCourseTime()) {
-    DPRINTLN(F("Shutters: course time is not the same, invalidating stored state"));
-    _storedState.setLevel(LEVEL_NONE);
-    _currentLevel = LEVEL_NONE;
+  if (_downCourseTime == 0) _downCourseTime = _upCourseTime;
+  if (_downCourseTime > (((uint32_t)1 << 15) - 1) * 10) {
+    _upCourseTime = 0;
+    _downCourseTime = 0;
+    _rotationTimeUp = 1500;
+    _rotationTimeDown = 1500;
+    return *this; // max value for 16 bits
   }
 
-  _upCourseTime = upCourseTime;
-  _upStepTime = upCourseTime / LEVELS;
-  _upCalibrationTime = upCourseTime * _calibrationRatio;
-  _storedState.setUpCourseTime(upCourseTime);
+    if (_rotationTimeUp == 0 || _rotationTimeDown == 0)  { 
+    _rotationTimeUp = 1500;
+    _rotationTimeDown = 1500;
+  }
 
-  _downCourseTime = downCourseTime;
-  _downStepTime = downCourseTime / LEVELS;
-  _downCalibrationTime = downCourseTime * _calibrationRatio;
-  _storedState.setDownCourseTime(downCourseTime);
+  _rotationStepUp = _upCourseTime/_rotationTimeUp;
+  _rotationStepDown = _downCourseTime/_rotationTimeDown;
 
+  if (_rotationStepUp > ((uint16_t)1 << 7) - 1)  { 
+    _rotationTimeUp = 1500;
+    _rotationTimeDown = 1500;
+    return *this; 
+  }
+
+  if (_rotationStepDown > ((uint16_t)1 << 7) - 1) { 
+    _rotationTimeUp = 1500;
+    _rotationTimeDown = 1500;
+    return *this; // max value for 12 bits
+  }
+
+  if (_upCourseTime != _storedState.getUpCourseTime() * 10  || _downCourseTime != _storedState.getDownCourseTime() * 10 || _rotationStepUp != _storedState.getRotationStepUp() || _rotationStepDown != _storedState.getRotationStepDown()) {
+    DPRINTLN(F("Shutters: course time is not the same, invalidating stored state"));
+    _storedState.setLevel(LEVEL_NONE);
+    _storedState.setTilt(LEVEL_NONE);
+    _currentLevel = LEVEL_NONE;
+    _currentTilt = LEVEL_NONE;
+  }
+
+  // _upCourseTime = upCourseTime;
+  _upStepTime = _upCourseTime / LEVELS;
+  _upCalibrationTime = _upCourseTime * _calibrationRatio;
+  _storedState.setUpCourseTime(_upCourseTime/10);
+
+  // _downCourseTime = downCourseTime;
+  _downStepTime = _downCourseTime / LEVELS;
+  _downCalibrationTime = _downCourseTime * _calibrationRatio;
+  _storedState.setDownCourseTime(_downCourseTime / 10 );
+
+  _storedState.setRotationStepUp(_rotationStepUp);
+  _storedState.setRotationStepDown(_rotationStepDown);
+  
   _writeStateHandler(this, _storedState.getState());
 
   return *this;
@@ -141,6 +221,12 @@ Shutters& Shutters::setCalibrationRatio(float calibrationRatio) {
 
 Shutters& Shutters::onLevelReached(ShuttersInternal::LevelReachedCallback callback) {
   _levelReachedCallback = callback;
+
+  return *this;
+}
+
+Shutters& Shutters::onTiltReached(ShuttersInternal::LevelReachedCallback callback) {
+  _tiltReachedCallback = callback;
 
   return *this;
 }
@@ -172,6 +258,37 @@ Shutters& Shutters::setLevel(uint16_t level) {
   }
 
   return *this;
+}
+
+Shutters& Shutters::setTilt(uint16_t position) {
+  
+  if (_reset) {
+    return *this;
+  }
+
+  if (position > (uint16_t)LEVELS) {
+    return *this;
+  }
+
+  if (_state == STATE_IDLE && position == _currentTilt) return *this;
+
+  _targetTilt = position;
+
+  return *this;
+}
+
+void Shutters::_rotate() {
+  if (_targetTilt != LEVEL_NONE) {
+    Direction direction = (_targetTilt > _currentTilt) ? DIRECTION_DOWN : DIRECTION_UP;
+
+    uint8_t _rotateStep = direction ==  DIRECTION_UP ? _rotationStepUp : _rotationStepDown;
+    int8_t tiltCalibration =  _targetTilt == 0 ? -1 : ( _targetTilt == 1000 ? 1 : 0 ) ; // add one step more on extreme postions
+    int16_t targetLevel = _currentLevel + (( (int16_t)_targetTilt - (int16_t)_currentTilt ) / _rotateStep) + tiltCalibration;
+
+    targetLevel = VALIDATE(targetLevel,0,LEVELS);
+    setLevel((uint16_t)targetLevel);
+    _targetTilt = LEVEL_NONE;
+  }
 }
 
 Shutters& Shutters::stop() {
@@ -217,15 +334,21 @@ Shutters& Shutters::loop() {
       _halt();
       _state = STATE_IDLE;
       _currentLevel = 0;
+      _currentTilt = 0 ;
       _storedState.setLevel(_currentLevel);
+      _storedState.setTilt(_currentTilt);
       _writeStateHandler(this, _storedState.getState());
       _notifyLevel();
+      _notifyTilt();
+      // _rotate(); //?
     }
-
     return *this;
   }
 
   // here, level is known
+  if (_state == STATE_IDLE && _targetTilt != LEVEL_NONE) {
+    _rotate();  
+  };
 
   if (_state == STATE_IDLE && _targetLevel == LEVEL_NONE) return *this; // nothing to do
 
@@ -233,10 +356,13 @@ Shutters& Shutters::loop() {
     const uint32_t calibrationTime = (_direction == DIRECTION_UP) ? _upCalibrationTime : _downCalibrationTime;
     if (millis() - _stateTime >= calibrationTime) {
       DPRINTLN(F("Shutters: calibration is done"));
+      _currentTilt =  (_direction == DIRECTION_UP) ? 0 : 1000 ;
       _halt();
       _state = STATE_IDLE;
       _notifyLevel();
+      _notifyTilt();
       _writeStateHandler(this, _storedState.getState());
+      _rotate();
     }
 
     return *this;
@@ -247,8 +373,10 @@ Shutters& Shutters::loop() {
   if (_state == STATE_IDLE) {
     DPRINTLN(F("Shutters: starting move"));
     _direction = (_targetLevel > _currentLevel) ? DIRECTION_DOWN : DIRECTION_UP;
+
     _safetyDelayDirection =  _direction == DIRECTION_DOWN ? DIRECTION_UP : DIRECTION_DOWN  ;  
     _storedState.setLevel(LEVEL_NONE);
+    _storedState.setTilt(LEVEL_NONE);
     _writeStateHandler(this, _storedState.getState());
     (_direction == DIRECTION_UP) ? _up() : _down();
     _state = STATE_TARGETING;
@@ -264,7 +392,12 @@ Shutters& Shutters::loop() {
   if (millis() - _stateTime < stepTime) return *this;
 
   _currentLevel += (_direction == DIRECTION_UP) ? -1 : 1;
+
+  // _tiltCorrection = VALIDATE(_tiltCorrection + ((_direction == DIRECTION_UP) ? 1 : -1),-5,5);
+
+  _currentTilt = (uint16_t)VALIDATE( (int16_t)_currentTilt + ( (_direction == DIRECTION_UP) ? - _rotationStepUp : _rotationStepDown ),0,LEVELS );
   _storedState.setLevel(_currentLevel);
+  _storedState.setTilt(_currentTilt);
   _stateTime = millis();
 
   if (_currentLevel == 0 || _currentLevel == LEVELS) { // we need to calibrate
@@ -280,8 +413,10 @@ Shutters& Shutters::loop() {
     _halt();
     _state = STATE_IDLE;
     _notifyLevel();
+    _notifyTilt();
     if (_targetLevel == LEVEL_NONE) _writeStateHandler(this, _storedState.getState());
 
+    _rotate();
     return *this;
   }
 
@@ -291,14 +426,17 @@ Shutters& Shutters::loop() {
     _state = STATE_IDLE;
     _targetLevel = LEVEL_NONE;
     _notifyLevel();
+    _notifyTilt();
     _writeStateHandler(this, _storedState.getState());
 
+    _rotate();
     return *this;
   }
 
   // we've reached an intermediary level
 
   _notifyLevel();
+  _notifyTilt();
 
   return *this;
 }
@@ -311,7 +449,12 @@ uint16_t Shutters::getCurrentLevel() {
   return _currentLevel;
 }
 
+uint16_t Shutters::getCurrentTilt() {
+  return _currentTilt;
+}
+
 Shutters& Shutters::reset() {
+  DPRINTLN(" Reset shutter");
   _halt();
   _storedState.reset();
   _writeStateHandler(this, _storedState.getState());

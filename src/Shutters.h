@@ -11,6 +11,8 @@
   #define _SAFETY_DELAY_ 1 * 1000
 #endif
 
+#define VALIDATE(a,b,c) ( (a) > (int16_t)(c) ? (c) : ( (a) < (b) ?  (b) : (a) ) )
+
 // #define DEBUG
 #ifdef DEBUG
   #define DPRINT(...)    Serial.print(__VA_ARGS__)
@@ -50,6 +52,11 @@ private:
   uint32_t _upCalibrationTime;
   uint32_t _downCalibrationTime;
 
+  uint16_t _rotationTimeUp;
+  uint16_t _rotationTimeDown;
+  uint8_t _rotationStepUp;
+  uint8_t _rotationStepDown;
+
   ShuttersInternal::State _state;
   uint32_t _stateTime;
   ShuttersInternal::Direction _direction;
@@ -58,6 +65,10 @@ private:
 
   uint16_t _currentLevel;
   uint16_t _targetLevel;
+
+  uint16_t _currentTilt;
+  uint16_t _targetTilt;
+  // int8_t _tiltCorrection;
 
   bool _safetyDelay;
   uint32_t _safetyDelayTime;
@@ -70,29 +81,39 @@ private:
   ShuttersInternal::WriteStateHandler _writeStateHandler;
 
   ShuttersInternal::LevelReachedCallback _levelReachedCallback;
+  ShuttersInternal::LevelReachedCallback _tiltReachedCallback;
 
   void _up();
   void _down();
   void _halt();
+  void _rotate();
   void _setSafetyDelay();
   void _notifyLevel();
+  void _notifyTilt();
 public:
   Shutters();
   uint32_t getUpCourseTime();
   uint32_t getDownCourseTime();
+  uint16_t getRotationTimeUp();
+  uint16_t getRotationTimeDown();
   Shutters& setOperationHandler(ShuttersInternal::OperationHandler handler);
   Shutters& restoreState(uint64_t state); 
   Shutters& setWriteStateHandler(ShuttersInternal::WriteStateHandler handler);
   Shutters& setCourseTime(uint32_t upCourseTime, uint32_t downCourseTime = 0);
+  Shutters& setRotationTime(uint16_t rotationTimeUp,uint16_t rotationTimeDown);
+  Shutters& setCourseTime();
   float getCalibrationRatio();
   Shutters& setCalibrationRatio(float calibrationRatio);
   Shutters& onLevelReached(ShuttersInternal::LevelReachedCallback callback);
+  Shutters& onTiltReached(ShuttersInternal::LevelReachedCallback callback);
   Shutters& begin();
   Shutters& setLevel(uint16_t level);
+  Shutters& setTilt(uint16_t level);
   Shutters& stop();
   Shutters& loop();
   bool isIdle();
   uint16_t getCurrentLevel();
+  uint16_t getCurrentTilt();
   Shutters& reset();
   bool isReset();
 };
