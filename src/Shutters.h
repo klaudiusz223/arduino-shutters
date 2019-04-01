@@ -26,8 +26,7 @@ class Shutters;
 
 namespace ShuttersInternal {
   const uint16_t SAFETY_DELAY = _SAFETY_DELAY_;
-  // const uint16_t LEVELS = 1000;
-
+  
   enum State : uint8_t {
     STATE_IDLE, // not moving
     STATE_RESETTING, // when state not known, goes to 0
@@ -39,6 +38,7 @@ namespace ShuttersInternal {
 
   typedef void (*OperationHandler)(::Shutters* s, ::ShuttersOperation operation);
   typedef void (*WriteStateHandler)(::Shutters* s, uint64_t state);
+  typedef void (*ReadStateHandler)(::Shutters* s, uint64_t &state);  
   typedef void (*LevelReachedCallback)(::Shutters* s, uint16_t level);
 }
 
@@ -46,22 +46,15 @@ class Shutters {
 private:
   uint32_t _upCourseTime;
   uint32_t _downCourseTime;
-  float _calibrationRatio;
+  uint8_t _calibrationRatio;
   uint32_t _upStepTime;
   uint32_t _downStepTime;
-  uint32_t _upCalibrationTime;
-  uint32_t _downCalibrationTime;
-
-  uint16_t _rotationTimeUp;
-  uint16_t _rotationTimeDown;
   uint8_t _rotationStepUp;
   uint8_t _rotationStepDown;
 
   ShuttersInternal::State _state;
   uint32_t _stateTime;
   ShuttersInternal::Direction _direction;
-
-  ShuttersInternal::StoredState _storedState;
 
   uint16_t _currentLevel;
   uint16_t _targetLevel;
@@ -79,6 +72,7 @@ private:
 
   ShuttersInternal::OperationHandler _operationHandler;
   ShuttersInternal::WriteStateHandler _writeStateHandler;
+  ShuttersInternal::ReadStateHandler _readStateHandler;
 
   ShuttersInternal::LevelReachedCallback _levelReachedCallback;
   ShuttersInternal::LevelReachedCallback _tiltReachedCallback;
@@ -94,16 +88,14 @@ public:
   Shutters();
   uint32_t getUpCourseTime();
   uint32_t getDownCourseTime();
-  uint16_t getRotationTimeUp();
-  uint16_t getRotationTimeDown();
   Shutters& setOperationHandler(ShuttersInternal::OperationHandler handler);
-  Shutters& restoreState(uint64_t state); 
   Shutters& setWriteStateHandler(ShuttersInternal::WriteStateHandler handler);
+  Shutters& setReadStateHandler(ShuttersInternal::ReadStateHandler handler);
   Shutters& setCourseTime(uint32_t upCourseTime, uint32_t downCourseTime = 0);
   Shutters& setRotationTime(uint16_t rotationTimeUp,uint16_t rotationTimeDown);
   Shutters& setCourseTime();
-  float getCalibrationRatio();
-  Shutters& setCalibrationRatio(float calibrationRatio);
+  uint8_t getCalibrationRatio();
+  Shutters& setCalibrationRatio(uint8_t calibrationRatio);
   Shutters& onLevelReached(ShuttersInternal::LevelReachedCallback callback);
   Shutters& onTiltReached(ShuttersInternal::LevelReachedCallback callback);
   Shutters& begin();
